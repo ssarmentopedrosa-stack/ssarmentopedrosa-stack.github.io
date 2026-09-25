@@ -1,48 +1,537 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Missão Orbital – Notas de Física | SilasLab Games</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #0b1020;
-      color: #e6e9f2;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      overflow: hidden;
-    }
-    iframe {
-      display: block;
-      width: 100%;
-      height: 100vh;
-      height: 100dvh;
-      border: 0;
-    }
-    .fallback {
-      position: fixed;
-      right: 8px;
-      bottom: 8px;
-      font-size: 12px;
-      background: rgba(11, 16, 32, 0.85);
-      padding: 4px 8px;
-      border-radius: 6px;
-    }
-    .fallback a { color: #8fb4ff; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#070b1f">
+<title>Missão Orbital – Notas de Física | SilasLab Games</title>
+<meta name="description" content="Consulta individual de desempenho em Física – Professor Silas · ECIT Bayeux Erenice Cavalcante Fidelis.">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<style>
+  :root{
+    --bg1:#050816; --bg2:#0b1437; --bg3:#1a1147;
+    --vidro:rgba(255,255,255,.07); --vidro-forte:rgba(255,255,255,.11); --borda:rgba(255,255,255,.16);
+    --texto:#f8fafc; --suave:#cbd5e1; --fraco:#94a3b8;
+    --ciano:#38bdf8; --ciano2:#22d3ee; --violeta:#a78bfa; --laranja:#fb923c; --verde:#4ade80; --ambar:#fbbf24;
+    --raio:22px;
+  }
+  *{box-sizing:border-box}
+  html{font-size:18px}
+  html{background:#0b1437}
+  body{margin:0;min-height:100vh;color:var(--texto);line-height:1.45;-webkit-font-smoothing:antialiased;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:transparent;overflow-x:hidden}
+  body{position:relative}
+  .fundo{position:absolute;inset:0;z-index:-1;pointer-events:none;
+    background:radial-gradient(1200px 700px at 85% -10%,rgba(124,58,237,.35),transparent 60%),
+               radial-gradient(900px 600px at -10% 110%,rgba(14,165,233,.25),transparent 60%),
+               linear-gradient(180deg,var(--bg1),var(--bg3) 45%,#0b1437)}
+  /* estrelas */
+  .ceu,.ceu::before,.ceu::after{position:absolute;inset:0;pointer-events:none;z-index:0}
+  .ceu{background-image:
+      radial-gradient(1.4px 1.4px at 12% 18%,#fff 60%,transparent),radial-gradient(1px 1px at 28% 72%,#fff 60%,transparent),
+      radial-gradient(1.2px 1.2px at 44% 36%,#e0f2fe 60%,transparent),radial-gradient(1px 1px at 63% 12%,#fff 60%,transparent),
+      radial-gradient(1.6px 1.6px at 78% 58%,#fff 60%,transparent),radial-gradient(1px 1px at 91% 28%,#ddd6fe 60%,transparent),
+      radial-gradient(1.1px 1.1px at 7% 88%,#fff 60%,transparent),radial-gradient(1.3px 1.3px at 53% 92%,#fff 60%,transparent);
+    opacity:.8}
+  .ceu::before{content:"";position:absolute;inset:0;background-image:
+      radial-gradient(1px 1px at 20% 40%,#fff 60%,transparent),radial-gradient(1px 1px at 35% 8%,#fff 60%,transparent),
+      radial-gradient(1.2px 1.2px at 70% 80%,#fff 60%,transparent),radial-gradient(1px 1px at 86% 6%,#fff 60%,transparent),
+      radial-gradient(1px 1px at 58% 55%,#fff 60%,transparent),radial-gradient(1.2px 1.2px at 4% 52%,#fff 60%,transparent);
+    animation:piscar 5s ease-in-out infinite alternate}
+  .ceu::after{content:"";position:absolute;inset:0;background-image:
+      radial-gradient(1px 1px at 15% 65%,#bae6fd 60%,transparent),radial-gradient(1.3px 1.3px at 40% 22%,#fff 60%,transparent),
+      radial-gradient(1px 1px at 67% 33%,#fff 60%,transparent),radial-gradient(1px 1px at 95% 75%,#fff 60%,transparent),
+      radial-gradient(1.1px 1.1px at 82% 94%,#fff 60%,transparent);
+    animation:piscar 7s ease-in-out 1.5s infinite alternate}
+  @keyframes piscar{from{opacity:.25}to{opacity:1}}
+  .planeta{position:fixed;right:-120px;top:-120px;width:320px;height:320px;border-radius:50%;z-index:0;pointer-events:none;
+    background:radial-gradient(circle at 35% 35%,#7c3aed,#312e81 55%,#0b1437 75%);opacity:.45;filter:blur(.5px)}
+  .planeta::after{content:"";position:absolute;left:-40px;right:-40px;top:46%;height:34px;border-radius:50%;
+    border:2px solid rgba(167,139,250,.35);transform:rotate(-14deg)}
+
+  .faixa{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:12px 20px;font-size:.78rem;color:var(--suave);border-bottom:1px solid rgba(255,255,255,.08);
+    background:rgba(5,8,22,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .marca{font-weight:800;letter-spacing:.08em;color:#fff}
+  .marca span{color:var(--laranja)}
+  main{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:22px 16px 40px}
+  [hidden]{display:none!important}
+
+  .vidro{background:var(--vidro);border:1px solid var(--borda);border-radius:var(--raio);
+    backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+    box-shadow:0 10px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);padding:22px}
+
+  /* ---------- login ---------- */
+  .hero{text-align:center;margin:6px auto 22px;max-width:680px}
+  .missao{display:inline-flex;align-items:center;gap:8px;font-size:.8rem;font-weight:800;letter-spacing:.18em;color:var(--ciano);
+    text-transform:uppercase;margin-bottom:10px}
+  .missao::before,.missao::after{content:"";width:26px;height:1px;background:linear-gradient(90deg,transparent,var(--ciano))}
+  .missao::after{transform:scaleX(-1)}
+  .kicker{display:inline-block;background:rgba(56,189,248,.14);color:#bae6fd;border:1px solid rgba(56,189,248,.35);
+    font-weight:700;padding:6px 14px;border-radius:999px;font-size:.85rem;margin:0 0 14px}
+  h1{font-size:clamp(1.6rem,5vw,2.5rem);line-height:1.12;margin:0 0 10px;letter-spacing:.02em;
+    background:linear-gradient(90deg,#fff,#bae6fd 55%,#ddd6fe);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .escola{margin:0 0 12px;color:var(--suave);font-weight:600;font-size:.95rem}
+  .intro{margin:0;font-size:1.05rem;color:#e2e8f0}
+
+  .tigrao{display:flex;align-items:flex-end;gap:12px;margin:0 auto 18px;max-width:480px}
+  .tigrao svg{flex:0 0 92px;width:92px;height:92px;filter:drop-shadow(0 6px 18px rgba(56,189,248,.35));animation:flutuar 4s ease-in-out infinite}
+  @keyframes flutuar{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-7px) rotate(2deg)}}
+  .balao{position:relative;flex:1;background:rgba(255,255,255,.1);border:1px solid var(--borda);border-radius:16px 16px 16px 4px;
+    padding:12px 14px;font-size:.92rem;color:#f1f5f9}
+  .balao b{display:block;font-size:.72rem;letter-spacing:.12em;color:var(--laranja);margin-bottom:2px;text-transform:uppercase}
+
+  form.vidro{max-width:480px;margin:0 auto}
+  label{display:block;font-weight:700;margin:0 0 6px;font-size:.95rem;color:#fff}
+  .campo{margin-bottom:18px}
+  input,select{width:100%;font:inherit;font-size:1.1rem;padding:14px;border:2px solid rgba(255,255,255,.18);border-radius:14px;
+    background:rgba(2,6,23,.55);color:#fff;outline:none;transition:border-color .2s, box-shadow .2s}
+  input::placeholder{color:#64748b}
+  select option{background:#0b1437;color:#fff}
+  input:focus,select:focus{border-color:var(--ciano);box-shadow:0 0 0 4px rgba(56,189,248,.2)}
+  .ajuda{font-size:.8rem;color:var(--fraco);margin-top:6px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;font:inherit;font-size:1.15rem;font-weight:800;
+    padding:15px;border:0;border-radius:14px;cursor:pointer;color:#0b1020;letter-spacing:.02em;
+    background:linear-gradient(90deg,var(--ciano2),var(--ciano) 45%,var(--violeta));box-shadow:0 8px 26px rgba(56,189,248,.35);
+    transition:transform .1s, box-shadow .2s, filter .2s}
+  .btn:hover{filter:brightness(1.08);box-shadow:0 10px 32px rgba(56,189,248,.5)}
+  .btn:active{transform:scale(.99)}
+  .btn[disabled]{opacity:.7;cursor:wait}
+  .btn.secundario{background:transparent;color:#e0f2fe;border:2px solid rgba(186,230,253,.5);box-shadow:none}
+  .btn.secundario:hover{background:rgba(56,189,248,.1)}
+  .btn svg{width:22px;height:22px}
+  .erro{display:none;background:rgba(251,113,133,.14);color:#fecdd3;border:1px solid rgba(251,113,133,.45);
+    padding:12px 14px;border-radius:14px;margin-bottom:16px;font-weight:600;font-size:.95rem}
+  .erro.visivel{display:block}
+
+  /* ---------- resultado ---------- */
+  .perfil{display:flex;gap:16px;align-items:center}
+  .insignia{flex:0 0 62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;
+    font-size:1.55rem;color:#0b1020;background:conic-gradient(from 200deg,var(--ciano),var(--violeta),var(--laranja),var(--ciano));
+    box-shadow:0 0 0 4px rgba(255,255,255,.08),0 0 24px rgba(167,139,250,.45)}
+  .rot-mini{font-size:.72rem;font-weight:800;letter-spacing:.14em;color:var(--ciano);text-transform:uppercase}
+  .perfil h2{margin:2px 0 0;font-size:1.3rem;line-height:1.2}
+  .perfil .meta{color:var(--suave);margin-top:4px;font-size:.95rem}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .chip{font-size:.78rem;font-weight:700;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.1);color:#e2e8f0}
+  .chip.alerta{background:rgba(251,191,36,.16);color:#fde68a}
+
+  .tigrao.resultado{max-width:none;margin:16px 0 0}
+  .tigrao.resultado svg{flex-basis:76px;width:76px;height:76px}
+
+  .titulo-secao{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:30px 4px 12px}
+  .titulo-secao h3{margin:0;font-size:.95rem;font-weight:800;letter-spacing:.08em;color:#fff}
+  .titulo-secao .tema{font-size:.8rem;color:var(--ciano);font-weight:700;letter-spacing:.06em}
+  .grade{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .estagio{position:relative;overflow:hidden;padding:16px 14px;text-align:center;border-radius:20px}
+  .estagio::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:rgba(255,255,255,.18)}
+  .estagio.tem::before{background:linear-gradient(90deg,var(--ciano),var(--violeta))}
+  .estagio.atual{border-color:rgba(56,189,248,.7);box-shadow:0 0 0 1px rgba(56,189,248,.4),0 10px 40px rgba(56,189,248,.18)}
+  .estagio .num{font-size:.75rem;font-weight:800;letter-spacing:.16em;color:var(--ciano)}
+  .estagio .plano{font-size:.85rem;font-weight:700;color:#e2e8f0;margin-top:2px}
+  .estagio .valor{font-size:2.5rem;font-weight:800;margin:6px 0 4px;line-height:1.05;color:#fff}
+  .estagio .vazio{color:#64748b}
+  .estagio .sub{font-size:.78rem;color:var(--suave);min-height:1.1em}
+  .selo{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:.74rem;font-weight:800;padding:5px 10px;border-radius:999px;
+    border:1px solid transparent;line-height:1.2;max-width:100%}
+  .selo i{font-style:normal}
+  .selo.aquec{background:rgba(251,146,60,.14);color:#fed7aa;border-color:rgba(251,146,60,.35)}
+  .selo.orbita{background:rgba(56,189,248,.14);color:#bae6fd;border-color:rgba(56,189,248,.4)}
+  .selo.escape{background:rgba(167,139,250,.16);color:#ddd6fe;border-color:rgba(167,139,250,.45)}
+  .selo.dobra{background:linear-gradient(90deg,rgba(34,211,238,.25),rgba(167,139,250,.3),rgba(251,146,60,.25));color:#fff;border-color:rgba(255,255,255,.5)}
+  .selo.aguarda{background:rgba(255,255,255,.06);color:var(--fraco);border-color:rgba(255,255,255,.12)}
+  .topo-tag{height:22px;margin:-6px 0 6px;line-height:1}
+  .tag-atual{display:inline-block;vertical-align:top;line-height:1.3;font-size:.62rem;font-weight:800;letter-spacing:.08em;color:#0b1020;background:var(--ciano);
+    border-radius:999px;padding:2px 7px}
+
+  .combustivel{margin-top:16px}
+  .comb-topo{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px}
+  .grande{font-size:2.7rem;font-weight:800;line-height:1;color:#fff}
+  .grande small{font-size:1.05rem;color:var(--suave);font-weight:700}
+  .plano-txt{margin:6px 0 0;font-size:1.05rem;color:#e2e8f0}
+  .pista{position:relative;margin:26px 0 8px;padding-right:6px}
+  .barra{position:relative;height:18px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);overflow:hidden}
+  .barra span{display:block;height:100%;width:0;border-radius:999px;
+    background:linear-gradient(90deg,#f97316,#fbbf24 30%,#22d3ee 70%,#a78bfa);box-shadow:0 0 18px rgba(34,211,238,.6);
+    transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
+  .barra.cheia span{background:linear-gradient(90deg,#22d3ee,#4ade80)}
+  .foguete{position:absolute;top:-22px;left:0;width:34px;height:34px;margin-left:-17px;transition:left 1.4s cubic-bezier(.2,.8,.2,1);
+    filter:drop-shadow(0 0 8px rgba(251,146,60,.7))}
+  .marcas{display:flex;justify-content:space-between;font-size:.72rem;color:var(--fraco);margin-top:6px}
+  .marcas span{flex:1;text-align:right;border-right:1px dashed rgba(255,255,255,.18);padding-right:4px}
+  .marcas span:last-child{border-right:0}
+  .aviso{border-radius:16px;padding:14px 16px;font-size:1.06rem;font-weight:700;margin-top:14px;border:1px solid transparent}
+  .aviso.info{background:rgba(56,189,248,.12);color:#e0f2fe;border-color:rgba(56,189,248,.35)}
+  .aviso.ok{background:rgba(74,222,128,.12);color:#dcfce7;border-color:rgba(74,222,128,.4)}
+  .aviso.atencao{background:rgba(251,191,36,.12);color:#fef3c7;border-color:rgba(251,191,36,.4)}
+  .obs{margin:12px 0 0;font-size:.92rem;color:#fef3c7;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:14px;padding:10px 14px}
+  .nota-peq{font-size:.82rem;color:var(--fraco);margin:14px 0 0}
+
+  .painel{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  .painel > div{background:rgba(2,6,23,.45);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:12px 8px;text-align:center}
+  .painel .r{font-size:.76rem;color:var(--suave);font-weight:700}
+  .painel .v{font-size:1.6rem;font-weight:800;margin-top:4px;color:#fff}
+  .painel > .destaque{background:rgba(56,189,248,.14);border-color:rgba(56,189,248,.45)}
+  .painel.final{grid-template-columns:repeat(3,1fr)}
+  .acoes{margin:30px auto 0;max-width:480px}
+  footer{position:relative;z-index:1;text-align:center;color:var(--fraco);font-size:.78rem;padding:0 16px 28px;max-width:680px;margin:0 auto}
+
+  /* animações de entrada */
+  .entra{opacity:0;transform:translateY(14px);animation:entrar .6s cubic-bezier(.2,.8,.2,1) forwards}
+  @keyframes entrar{to{opacity:1;transform:none}}
+
+  @media (max-width:640px){
+    html{font-size:17px}
+    main{padding:16px 12px 32px}
+    .vidro{padding:18px}
+    .grade{grid-template-columns:repeat(2,1fr)}
+    .painel{grid-template-columns:repeat(3,1fr)}
+    .painel.final{grid-template-columns:1fr}
+    .estagio .valor{font-size:2.2rem}
+    .planeta{width:220px;height:220px;right:-100px;top:-90px;opacity:.35}
+    .faixa{justify-content:center;text-align:center}
+    /* mais contraste no celular */
+    .vidro{background:rgba(15,23,42,.72)}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation:none!important;transition:none!important}
+    .entra{opacity:1;transform:none}
+  }
+</style>
 </head>
 <body>
-  <iframe
-    src="https://script.google.com/macros/s/AKfycbx5GTuYza-PuWZHkHlq4zuyVbrl55o-h5l_9AW6IDVonirRjBw5fiPTiLuObwK2BKE/exec"
-    title="Missão Orbital – Notas de Física"
-    allow="clipboard-write"></iframe>
-  <div class="fallback">
-    <a href="https://script.google.com/macros/s/AKfycbx5GTuYza-PuWZHkHlq4zuyVbrl55o-h5l_9AW6IDVonirRjBw5fiPTiLuObwK2BKE/exec" target="_top">Não abriu? Toque aqui</a>
+  <div class="fundo" aria-hidden="true"></div>
+  <div class="ceu" aria-hidden="true"></div>
+  <div class="planeta" aria-hidden="true"></div>
+
+  <div class="faixa">
+    <span class="marca">SILASLAB <span>GAMES</span> · MISSÃO ORBITAL</span>
+    <span>ECIT Bayeux Erenice Cavalcante Fidelis · Física – Professor Silas</span>
   </div>
-  <noscript>
-    <p style="text-align:center"><a href="https://script.google.com/macros/s/AKfycbx5GTuYza-PuWZHkHlq4zuyVbrl55o-h5l_9AW6IDVonirRjBw5fiPTiLuObwK2BKE/exec" target="_top" style="color:#8fb4ff">Não abriu? Toque aqui</a></p>
-  </noscript>
+
+  <!-- Tigrão: cachorro astronauta (modelo reutilizado) -->
+  <template id="svgTigrao">
+    <svg viewBox="0 0 120 120" role="img" aria-label="Tigrão, o cachorro astronauta da SilasLab Games">
+      <defs>
+        <radialGradient id="tgVidro" cx="35%" cy="30%" r="75%">
+          <stop offset="0" stop-color="#e0f2fe" stop-opacity=".35"/><stop offset="1" stop-color="#38bdf8" stop-opacity=".08"/>
+        </radialGradient>
+      </defs>
+      <!-- traje -->
+      <path d="M26 118c2-18 16-28 34-28s32 10 34 28z" fill="#e2e8f0"/>
+      <path d="M40 104h40" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="72" cy="110" r="5" fill="#fb923c"/>
+      <rect x="44" y="84" width="32" height="10" rx="5" fill="#cbd5e1"/>
+      <!-- orelhas caídas (cachorro) -->
+      <ellipse cx="37" cy="58" rx="9" ry="18" fill="#8b5a2b" transform="rotate(18 37 58)"/>
+      <ellipse cx="83" cy="58" rx="9" ry="18" fill="#8b5a2b" transform="rotate(-18 83 58)"/>
+      <!-- cabeça -->
+      <ellipse cx="60" cy="56" rx="24" ry="23" fill="#d6a15f"/>
+      <ellipse cx="60" cy="42" rx="9" ry="6" fill="#e8bd83"/>
+      <!-- focinho -->
+      <ellipse cx="60" cy="67" rx="14" ry="10" fill="#f6e3c3"/>
+      <ellipse cx="60" cy="61.5" rx="5.2" ry="3.8" fill="#1f2937"/>
+      <path d="M60 65v3M60 68q-4.5 5-9 1.5M60 68q4.5 5 9 1.5" stroke="#1f2937" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <ellipse cx="60" cy="73.5" rx="3.3" ry="3.8" fill="#fb7185"/>
+      <!-- olhos -->
+      <circle cx="50" cy="51" r="3.6" fill="#111827"/><circle cx="70" cy="51" r="3.6" fill="#111827"/>
+      <circle cx="51.2" cy="49.8" r="1.2" fill="#fff"/><circle cx="71.2" cy="49.8" r="1.2" fill="#fff"/>
+      <!-- capacete -->
+      <circle cx="60" cy="56" r="42" fill="url(#tgVidro)" stroke="#bae6fd" stroke-width="3"/>
+      <path d="M30 40a36 36 0 0 1 22-18" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/>
+      <line x1="60" y1="14" x2="60" y2="5" stroke="#cbd5e1" stroke-width="2.5"/><circle cx="60" cy="4.5" r="3.5" fill="#fb923c"/>
+    </svg>
+  </template>
+
+  <main>
+    <!-- ========== TELA DE LOGIN ========== -->
+    <section id="telaLogin">
+      <div class="hero entra">
+        <div class="missao">Missão Orbital</div><br>
+        <p class="kicker">Ano Letivo <span class="ano">2026</span></p>
+        <h1>CONSULTA INDIVIDUAL DE DESEMPENHO</h1>
+        <p class="escola">ECIT Bayeux Erenice Cavalcante Fidelis · Professor Silas – Física</p>
+        <p class="intro">Consulte suas médias bimestrais, notas do bimestre atual e acompanhe sua pontuação anual.</p>
+      </div>
+
+      <div class="tigrao entra" style="animation-delay:.1s" data-tigrao>
+        <div class="balao"><b>Tigrão</b>Olá, astronauta! Escolha sua turma e informe seu primeiro nome e seu número da lista para iniciar a missão.</div>
+      </div>
+
+      <form class="vidro entra" style="animation-delay:.2s" id="formLogin" autocomplete="off" novalidate>
+        <div class="erro" id="erro" role="alert"></div>
+        <div class="campo">
+          <label for="turma">Turma</label>
+          <select id="turma" required>
+            <option value="">Carregando turmas… (pode levar alguns segundos)</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="nome">Primeiro nome</label>
+          <input id="nome" type="text" autocomplete="off" autocapitalize="words" spellcheck="false"
+                 placeholder="Ex.: Maria" maxlength="40" required>
+        </div>
+        <div class="campo">
+          <label for="senha">Senha / número da lista</label>
+          <input id="senha" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                 placeholder="Ex.: 12" maxlength="4" required>
+          <div class="ajuda">É o seu número na ordem da lista da turma.</div>
+        </div>
+        <button class="btn" id="btnEntrar" type="submit">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.5 2.5c3.6.4 6.8 3.6 8 8-1.1 2-2.9 3.9-5 5.3l-.4 3.7-3.2 1.9-.6-3.4-3.3-3.3-3.4-.6 1.9-3.2 3.7-.4c1.4-2.1 3.3-3.9 5.3-5 .1-1.1-1.6-2.7-3-3zm2.3 4.3a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zM5.6 15.9c.9.9.9 2.4 0 3.3-.9.9-3.9 1.5-3.9 1.5s.6-3 1.5-3.9c.7-.7 1.7-.8 2.4-.9z"/></svg>
+          <span id="txtEntrar">Entrar</span>
+        </button>
+        <p class="ajuda" id="aguarde" role="status" aria-live="polite" style="text-align:center;margin:10px 0 0" hidden>Consultando suas notas… isso pode levar alguns segundos.</p>
+      </form>
+    </section>
+
+    <!-- ========== TELA DE RESULTADO ========== -->
+    <section id="telaResultado" hidden aria-live="polite">
+      <div class="vidro entra">
+        <div class="perfil">
+          <div class="insignia" id="insignia"></div>
+          <div>
+            <div class="rot-mini">Astronauta</div>
+            <h2 id="rNome"></h2>
+            <div class="meta" id="rMeta"></div>
+            <div class="chips" id="rChips"></div>
+          </div>
+        </div>
+        <div class="tigrao resultado" data-tigrao>
+          <div class="balao"><b>Tigrão</b><span id="rTigrao"></span></div>
+        </div>
+      </div>
+
+      <div class="titulo-secao entra" style="animation-delay:.1s"><h3>MÉDIAS BIMESTRAIS – <span class="ano">2026</span></h3><span class="tema">· Estágios do foguete</span></div>
+      <div class="grade" id="rBimestres"></div>
+
+      <div class="titulo-secao entra" style="animation-delay:.35s"><h3>PONTUAÇÃO ANUAL</h3><span class="tema">· Combustível rumo à velocidade de escape</span></div>
+      <div class="vidro combustivel entra" style="animation-delay:.4s" id="rPontos"></div>
+
+      <div id="blocoComposicao" hidden>
+        <div class="titulo-secao entra" style="animation-delay:.45s"><h3 id="tituloComposicao">COMPOSIÇÃO DO BIMESTRE ATUAL</h3><span class="tema">· Painel do estágio atual</span></div>
+        <div class="vidro entra" style="animation-delay:.5s"><div class="painel" id="rComposicao"></div></div>
+      </div>
+
+      <div id="blocoFinal" hidden>
+        <div class="titulo-secao entra" style="animation-delay:.5s"><h3>RESULTADO FINAL</h3><span class="tema">· Relatório da missão</span></div>
+        <div class="vidro entra" style="animation-delay:.55s"><div class="painel final" id="rFinal"></div></div>
+      </div>
+
+      <div class="acoes">
+        <button class="btn secundario" id="btnSair" type="button">Sair / consultar outro estudante</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>SilasLab Games · Consulta individual: cada estudante vê apenas as próprias notas. Em caso de dúvida, fale com o professor.</footer>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  // API do Apps Script (implantação "Qualquer pessoa"). Chamadas SEM cookies do Google
+  // (credentials:'omit'), então funciona mesmo com várias contas Google logadas no navegador.
+  var EXEC = 'https://script.google.com/macros/s/AKfycbx5GTuYza-PuWZHkHlq4zuyVbrl55o-h5l_9AW6IDVonirRjBw5fiPTiLuObwK2BKE/exec';
+  var TEMPO_LIMITE_MS = 60000;   // o Apps Script pode levar 10–40 s quando está "acordando"
+  var MSG_FALHA = 'Não foi possível consultar agora. Verifique sua internet e tente novamente.';
+  var MSG_FALHA_REDE = 'Sem conexão com o servidor de notas. Verifique sua internet e tente novamente em instantes.';
+  var MSG_FALHA_TURMAS = 'Não foi possível carregar as turmas. Verifique sua internet e recarregue a página.';
+
+  /** Chama a API e devolve uma Promise com o JSON. Rejeita em erro de rede, tempo esgotado ou resposta não-JSON. */
+  function api(opcoes) {
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, TEMPO_LIMITE_MS) : null;
+    var init = { credentials: 'omit', redirect: 'follow', cache: 'no-store' };
+    if (ctrl) init.signal = ctrl.signal;
+    var url = EXEC;
+    if (opcoes.post) {
+      init.method = 'POST';
+      init.headers = { 'Content-Type': 'text/plain;charset=utf-8' };   // "simple request": sem preflight CORS
+      init.body = JSON.stringify(opcoes.post);
+    } else {
+      url += '?action=' + encodeURIComponent(opcoes.get);
+    }
+    return fetch(url, init)
+      .then(function (resp) {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.text();
+      })
+      .then(function (txt) {
+        var dados = JSON.parse(txt);   // página de erro do Google (HTML) cai no catch
+        if (!dados || typeof dados !== 'object') throw new Error('resposta inválida');
+        return dados;
+      })
+      .then(function (dados) { if (timer) clearTimeout(timer); return dados; },
+            function (err) { if (timer) clearTimeout(timer); throw err; });
+  }
+  var FOGUETE = '<svg class="foguete" id="foguete" viewBox="0 0 64 64" aria-hidden="true">' +
+    '<path d="M8 40c6-2 10-1 14 2l-8 10c-2-4-4-7-6-12z" fill="#fb923c"/>' +
+    '<path d="M22 42c10-18 24-28 38-30-2 14-12 28-30 38z" fill="#e2e8f0"/>' +
+    '<circle cx="42" cy="26" r="5" fill="#38bdf8" stroke="#0b1437" stroke-width="2"/>' +
+    '<path d="M22 42l8 8-6 2-4-4z" fill="#a78bfa"/><path d="M14 50c-3 3-5 9-5 9s6-2 9-5z" fill="#fbbf24"/></svg>';
+
+  // insere o Tigrão (SVG) nos locais marcados
+  Array.prototype.forEach.call(document.querySelectorAll('[data-tigrao]'), function (el) {
+    el.insertBefore(document.importNode($('svgTigrao').content, true), el.firstChild);
+  });
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&', '<': '<', '>': '>', '"': '"', "'": '&#39;' }[c];
+    });
+  }
+  function mostrarErro(msg) { var e = $('erro'); e.textContent = msg; e.classList.add('visivel'); }
+  function limparErro() { var e = $('erro'); e.textContent = ''; e.classList.remove('visivel'); }
+  function setAno(ano) { if (!ano) return; Array.prototype.forEach.call(document.querySelectorAll('.ano'), function (el) { el.textContent = ano; }); }
+  function num(txt) { return parseFloat(String(txt).replace(',', '.')); }
+
+  function selo(valor) {
+    if (valor === null) return '<span class="selo aguarda"><i>◌</i>Aguardando ignição</span>';
+    if (valor >= 10) return '<span class="selo dobra"><i>✦</i>Dobra espacial</span>';
+    if (valor >= 8) return '<span class="selo escape"><i>🚀</i>Velocidade de escape</span>';
+    if (valor >= 6) return '<span class="selo orbita"><i>🪐</i>Órbita estável</span>';
+    return '<span class="selo aquec"><i>🔥</i>Em aquecimento</span>';
+  }
+
+  function falaTigrao(e) {
+    var m = e.meta, nome = (e.nome || '').split(' ')[0];
+    var t;
+    if (m.alcancada) t = 'Boa, ' + nome + '! Seu combustível já chegou aos 24 pontos. Continue firme até o fim do ano: frequência e as demais regras da escola também contam.';
+    else if (m.acimaDoMaximo) t = nome + ', não desanime! A recuperação existe justamente para isso. Converse com o professor e vamos traçar um novo plano de voo.';
+    else {
+      var p = num(m.porBimestreTexto);
+      if (p <= 6) t = 'Rota bem encaminhada, ' + nome + '! Mantenha o ritmo nos próximos estágios.';
+      else if (p <= 8) t = 'Dá para chegar, ' + nome + '! Com foco e constância nos próximos estágios, o combustível enche.';
+      else t = 'Vai exigir esforço, ' + nome + ', mas cada ponto conta. Peça ajuda ao professor sempre que precisar.';
+    }
+    if (m.bimestresSemNota.length) t += ' Atenção: há bimestre sem nota lançada (veja abaixo).';
+    return t;
+  }
+
+  function carregarTurmas(tentativa) {
+    tentativa = tentativa || 1;
+    api({ get: 'turmas' })
+      .then(function (res) {
+        if (!res.ok || !Array.isArray(res.turmas)) throw new Error(res.error || 'sem turmas');
+        $('turma').innerHTML = '<option value="">Selecione sua turma</option>' +
+          res.turmas.map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('');
+        setAno(res.anoLetivo);
+        limparErro();
+      })
+      .catch(function () {
+        if (tentativa < 2) { setTimeout(function () { carregarTurmas(tentativa + 1); }, 1500); return; }   // 2ª chance (servidor "acordando")
+        $('turma').innerHTML = '<option value="">Erro ao carregar turmas</option>';
+        mostrarErro(MSG_FALHA_TURMAS);
+      });
+  }
+
+  $('formLogin').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    limparErro();
+    var turma = $('turma').value, nome = $('nome').value.trim(), senha = $('senha').value.trim();
+    if ($('btnEntrar').disabled) return;
+    if (!turma) { mostrarErro('Selecione sua turma.'); return; }
+    if (!nome || !senha) { mostrarErro('Preencha seu primeiro nome e o número da lista.'); return; }
+    var btn = $('btnEntrar');
+    btn.disabled = true; $('txtEntrar').textContent = 'Consultando…'; $('aguarde').hidden = false;
+    api({ post: { action: 'login', turma: turma, nome: nome, senha: senha } })
+      .then(function (res) {
+        btn.disabled = false; $('txtEntrar').textContent = 'Entrar'; $('aguarde').hidden = true;
+        if (!res.ok || !res.estudante) { mostrarErro(res.error || res.mensagem || MSG_FALHA); return; }
+        mostrarResultado(res.estudante);
+      })
+      .catch(function () {
+        btn.disabled = false; $('txtEntrar').textContent = 'Entrar'; $('aguarde').hidden = true;
+        mostrarErro(MSG_FALHA_REDE);
+      });
+  });
+
+  function mostrarResultado(e) {
+    var m = e.meta;
+    setAno(e.anoLetivo);
+    $('insignia').textContent = (e.nome || '?').charAt(0).toUpperCase();
+    $('rNome').textContent = e.nome;
+    $('rMeta').textContent = 'Turma ' + e.turma + ' · Nº ' + e.numero + ' na lista';
+    var chips = '';
+    if (e.frequencia) chips += '<span class="chip' + (/infrequente/i.test(e.frequencia) ? ' alerta' : '') + '">Frequência: ' + esc(e.frequencia) + '</span>';
+    if (e.situacao) chips += '<span class="chip">Situação: ' + esc(e.situacao) + '</span>';
+    $('rChips').innerHTML = chips;
+    $('rTigrao').textContent = falaTigrao(e);
+
+    // Estágios (bimestres)
+    $('rBimestres').innerHTML = e.bimestres.map(function (b, i) {
+      var tem = b.valor !== null, atual = b.bimestre === e.bimestreAtual;
+      var semNota = !tem && m.bimestresSemNota.indexOf(b.bimestre) >= 0;
+      var sub = tem ? '' : (semNota ? '(sem nota lançada)' : 'aguardando lançamento');
+      var aria = 'Estágio ' + b.bimestre + ' · Média do ' + b.bimestre + 'º bimestre: ' + (tem ? b.texto : 'sem nota');
+      return '<div class="vidro estagio entra' + (tem ? ' tem' : '') + (atual ? ' atual' : '') + '" style="animation-delay:' + (0.15 + i * 0.07) + 's" aria-label="' + esc(aria) + '">' +
+        '<div class="topo-tag">' + (atual ? '<span class="tag-atual">BIMESTRE ATUAL</span>' : '') + '</div>' +
+        '<div class="num">ESTÁGIO ' + b.bimestre + '</div>' +
+        '<div class="plano">Média do ' + b.bimestre + 'º bimestre</div>' +
+        '<div class="valor' + (tem ? '' : ' vazio') + '">' + (tem ? esc(b.texto) : '—') + '</div>' +
+        '<div class="sub">' + esc(sub) + '</div>' + (tem || !semNota ? selo(tem ? b.valor : null) : '') + '</div>';
+    }).join('');
+
+    // Combustível (pontuação acumulada)
+    var pct = Math.max(0, Math.min(100, m.acumulado / m.meta * 100));
+    var html = '<div class="comb-topo"><div>' +
+      '<div class="grande">' + esc(m.acumuladoTexto) + ' <small>/ 24 pontos</small></div>' +
+      '<p class="plano-txt">Pontuação acumulada: <strong>' + esc(m.acumuladoTexto) + ' pontos</strong> (soma das médias bimestrais lançadas)</p>' +
+      '</div></div>' +
+      '<div class="pista">' + FOGUETE +
+      '<div class="barra' + (m.alcancada ? ' cheia' : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="24" aria-valuenow="' + m.acumulado +
+      '" aria-label="Pontuação acumulada: ' + esc(m.acumuladoTexto) + ' de 24 pontos"><span id="combBarra"></span></div>' +
+      '<div class="marcas"><span>6</span><span>12</span><span>18</span><span>24 · órbita</span></div></div>';
+    var classeAviso = m.alcancada ? 'ok' : (m.acimaDoMaximo ? 'atencao' : 'info');
+    html += '<div class="aviso ' + classeAviso + '">' + esc(m.mensagem) + '</div>';
+    m.observacoes.forEach(function (o) { html += '<p class="obs">' + esc(o) + '</p>'; });
+    html += '<p class="nota-peq">Meta anual: 24 pontos = soma das 4 médias bimestrais (média anual 6,0) — a “velocidade de escape” da missão. ' +
+      'Esta informação se refere apenas à aprovação por média/pontuação; outras regras da escola ' +
+      '(frequência, recuperação) também podem se aplicar.</p>';
+    $('rPontos').innerHTML = html;
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      $('combBarra').style.width = pct.toFixed(1) + '%';
+      $('foguete').style.left = pct.toFixed(1) + '%';
+    }); });
+
+    if (e.composicao) {
+      $('tituloComposicao').textContent = 'COMPOSIÇÃO DO BIMESTRE ATUAL (' + e.composicao.bimestre + 'º BIMESTRE)';
+      $('rComposicao').innerHTML = e.composicao.itens.map(function (it, i) {
+        var dest = i === e.composicao.itens.length - 1 ? ' class="destaque"' : '';
+        return '<div' + dest + '><div class="r">' + esc(it.rotulo) + '</div><div class="v">' + esc(it.texto) + '</div></div>';
+      }).join('');
+      $('blocoComposicao').hidden = false;
+    } else {
+      $('blocoComposicao').hidden = true; $('rComposicao').innerHTML = '';
+    }
+
+    if (e.resultadoFinal && e.resultadoFinal.length) {
+      $('rFinal').innerHTML = e.resultadoFinal.map(function (it) {
+        return '<div><div class="r">' + esc(it.rotulo) + '</div><div class="v">' + esc(it.texto) + '</div></div>';
+      }).join('');
+      $('blocoFinal').hidden = false;
+    } else {
+      $('blocoFinal').hidden = true; $('rFinal').innerHTML = '';
+    }
+
+    $('telaLogin').hidden = true;
+    $('telaResultado').hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  $('btnSair').addEventListener('click', function () {
+    ['rNome', 'rMeta', 'rChips', 'rTigrao', 'rBimestres', 'rPontos', 'rComposicao', 'rFinal', 'insignia'].forEach(function (id) { $(id).innerHTML = ''; });
+    $('telaResultado').hidden = true;
+    $('formLogin').reset();
+    limparErro();
+    $('telaLogin').hidden = false;
+    window.scrollTo(0, 0);
+    $('nome').focus();
+  });
+
+  carregarTurmas();
+})();
+</script>
 </body>
 </html>
