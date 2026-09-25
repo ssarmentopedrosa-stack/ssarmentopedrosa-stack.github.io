@@ -378,7 +378,7 @@
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return { '&': '&', '<': '<', '>': '>', '"': '"', "'": '&#39;' }[c];
+      return { '&': '&#38;', '<': '&#60;', '>': '&#62;', '"': '&#34;', "'": '&#39;' }[c];   // entidades numéricas
     });
   }
   function mostrarErro(msg) { var e = $('erro'); e.textContent = msg; e.classList.add('visivel'); }
