@@ -333,7 +333,13 @@
   // API do Apps Script (implantação "Qualquer pessoa"). Chamadas SEM cookies do Google
   // (credentials:'omit'), então funciona mesmo com várias contas Google logadas no navegador.
   var EXEC = 'https://script.google.com/macros/s/AKfycbx5GTuYza-PuWZHkHlq4zuyVbrl55o-h5l_9AW6IDVonirRjBw5fiPTiLuObwK2BKE/exec';
-  var TEMPO_LIMITE_MS = 60000;   // o Apps Script pode levar 10–40 s quando está "acordando"
+  var TEMPO_LIMITE_MS = 45000;          // por tentativa (o Apps Script pode levar 10–40 s quando está "acordando")
+  var ESPERAS_RETRY_MS = [1500, 3000];  // até 3 tentativas no total quando a resposta se perde (HTML de erro, HTTP 4xx/5xx, rede)
+  var AQUECER_APOS_MS = 4 * 60 * 1000;  // sem contato há mais de 4 min -> "acorda" o servidor em segundo plano
+  var TXT_AGUARDE = 'Consultando suas notas… isso pode levar alguns segundos.';
+  var TXT_ACORDANDO = 'O servidor está acordando, tentando de novo…';
+  var TXT_CARREGANDO_TURMAS = 'Carregando turmas… (pode levar alguns segundos)';
+  var ultimoContato = 0, aquecendo = false, turmasOk = false, carregandoTurmas = false;
   var MSG_FALHA = 'Não foi possível consultar agora. Verifique sua internet e tente novamente.';
   var MSG_FALHA_REDE = 'Sem conexão com o servidor de notas. Verifique sua internet e tente novamente em instantes.';
   var MSG_FALHA_TURMAS = 'Não foi possível carregar as turmas. Verifique sua internet e recarregue a página.';
@@ -360,10 +366,36 @@
       .then(function (txt) {
         var dados = JSON.parse(txt);   // página de erro do Google (HTML) cai no catch
         if (!dados || typeof dados !== 'object') throw new Error('resposta inválida');
+        ultimoContato = Date.now();
         return dados;
       })
       .then(function (dados) { if (timer) clearTimeout(timer); return dados; },
             function (err) { if (timer) clearTimeout(timer); throw err; });
+  }
+
+  /**
+   * Igual a api(), mas repete (até 3 tentativas, esperas de 1,5 s e 3 s) quando a resposta NÃO é um JSON válido
+   * (página de erro do Google, HTTP 4xx/5xx, falha de rede, tempo esgotado). Um JSON válido — inclusive
+   * {ok:false} de senha errada ou bloqueio — é devolvido na hora, sem repetir.
+   */
+  function apiComRetry(opcoes, aoRepetir) {
+    var feitas = 0;
+    function rodar() {
+      return api(opcoes).catch(function (err) {
+        if (feitas >= ESPERAS_RETRY_MS.length) throw err;
+        var espera = ESPERAS_RETRY_MS[feitas++];
+        if (aoRepetir) aoRepetir(feitas);
+        return new Promise(function (ok) { setTimeout(ok, espera); }).then(rodar);
+      });
+    }
+    return rodar();
+  }
+
+  /** Identificador aleatório de UMA tentativa de login (o mesmo nos reenvios automáticos). */
+  function novoId() {
+    var a = new Uint8Array(12), c = window.crypto || window.msCrypto, i;
+    if (c && c.getRandomValues) c.getRandomValues(a); else for (i = 0; i < a.length; i++) a[i] = Math.floor(Math.random() * 256);
+    return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
   }
   var FOGUETE = '<svg class="foguete" id="foguete" viewBox="0 0 64 64" aria-hidden="true">' +
     '<path d="M8 40c6-2 10-1 14 2l-8 10c-2-4-4-7-6-12z" fill="#fb923c"/>' +
@@ -409,22 +441,42 @@
     return t;
   }
 
-  function carregarTurmas(tentativa) {
-    tentativa = tentativa || 1;
-    api({ get: 'turmas' })
+  function opcaoUnica(txt) { $('turma').innerHTML = '<option value="">' + esc(txt) + '</option>'; }
+
+  function carregarTurmas() {
+    if (carregandoTurmas) return;
+    carregandoTurmas = true;
+    apiComRetry({ get: 'turmas' }, function () { opcaoUnica(TXT_ACORDANDO); })
       .then(function (res) {
         if (!res.ok || !Array.isArray(res.turmas)) throw new Error(res.error || 'sem turmas');
         $('turma').innerHTML = '<option value="">Selecione sua turma</option>' +
           res.turmas.map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('');
         setAno(res.anoLetivo);
+        turmasOk = true;
         limparErro();
       })
       .catch(function () {
-        if (tentativa < 2) { setTimeout(function () { carregarTurmas(tentativa + 1); }, 1500); return; }   // 2ª chance (servidor "acordando")
-        $('turma').innerHTML = '<option value="">Erro ao carregar turmas</option>';
+        opcaoUnica('Erro ao carregar turmas');
         mostrarErro(MSG_FALHA_TURMAS);
-      });
+      })
+      .then(function () { carregandoTurmas = false; });
   }
+
+  /** Ao digitar nome/senha: se o servidor está sem contato há mais de 4 min, acorda-o em silêncio. */
+  function aquecer() {
+    if ($('btnEntrar').disabled) return;
+    if (!turmasOk) {                       // turmas falharam antes: tenta carregar de novo
+      if (!carregandoTurmas) { limparErro(); opcaoUnica(TXT_CARREGANDO_TURMAS); carregarTurmas(); }
+      return;
+    }
+    if (aquecendo || Date.now() - ultimoContato < AQUECER_APOS_MS) return;
+    aquecendo = true;
+    api({ get: 'turmas' }).catch(function () {}).then(function () { aquecendo = false; });
+  }
+  ['nome', 'senha'].forEach(function (id) {
+    $(id).addEventListener('focus', aquecer);
+    $(id).addEventListener('input', aquecer);
+  });
 
   $('formLogin').addEventListener('submit', function (ev) {
     ev.preventDefault();
@@ -434,15 +486,22 @@
     if (!turma) { mostrarErro('Selecione sua turma.'); return; }
     if (!nome || !senha) { mostrarErro('Preencha seu primeiro nome e o número da lista.'); return; }
     var btn = $('btnEntrar');
-    btn.disabled = true; $('txtEntrar').textContent = 'Consultando…'; $('aguarde').hidden = false;
-    api({ post: { action: 'login', turma: turma, nome: nome, senha: senha } })
+    btn.disabled = true; $('txtEntrar').textContent = 'Consultando…';
+    $('aguarde').textContent = TXT_AGUARDE; $('aguarde').hidden = false;
+    function fim() {
+      btn.disabled = false; $('txtEntrar').textContent = 'Entrar';
+      $('aguarde').hidden = true; $('aguarde').textContent = TXT_AGUARDE;
+    }
+    // mesmo tentativaId nos reenvios: o servidor não conta 2x o mesmo erro no bloqueio
+    var pedido = { action: 'login', turma: turma, nome: nome, senha: senha, tentativaId: novoId() };
+    apiComRetry({ post: pedido }, function () { $('aguarde').textContent = TXT_ACORDANDO; })
       .then(function (res) {
-        btn.disabled = false; $('txtEntrar').textContent = 'Entrar'; $('aguarde').hidden = true;
+        fim();
         if (!res.ok || !res.estudante) { mostrarErro(res.error || res.mensagem || MSG_FALHA); return; }
         mostrarResultado(res.estudante);
       })
       .catch(function () {
-        btn.disabled = false; $('txtEntrar').textContent = 'Entrar'; $('aguarde').hidden = true;
+        fim();
         mostrarErro(MSG_FALHA_REDE);
       });
   });
