@@ -23,6 +23,10 @@
   function num(v) { var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) ? null : n; }
   function br(n) { return n == null || isNaN(n) ? '—' : Number(n).toFixed(1).replace('.', ','); }
   function notaFrequencia(pct) { return pct == null ? null : Math.max(0, Math.min(10, Number(pct) / 10)); }
+  function limitarNota(n) {
+    if (n == null || isNaN(n)) return null;
+    return Math.max(0, Math.min(10, n));
+  }
   function notaQualitativa(av, freqPct, pesos) {
     pesos = pesos || PESOS_PADRAO;
     var partes = CRITERIOS.map(function (c) { return [c.id, av[c.id]]; }).concat([['frequencia', notaFrequencia(freqPct)]]);
@@ -30,16 +34,17 @@
     partes.forEach(function (p) {
       if (p[1] == null || p[1] === '') return;
       var w = Number(pesos[p[0]] || 0);
-      soma += Number(p[1]) * w;
+      soma += limitarNota(Number(p[1])) * w;
       somaP += w;
     });
     if (!somaP) return null;
-    return Math.round((soma / somaP) * 10) / 10;
+    return limitarNota(Math.round((soma / somaP) * 10) / 10);
   }
   function notaFinal(acad, qual, peso) {
     peso = peso || PESO_NOTA_PADRAO;
     if (acad == null || qual == null) return null;
-    return Math.round((Number(acad) * Number(peso.academica) + Number(qual) * Number(peso.qualitativa))) / 100;
+    var valor = Math.round((Number(acad) * Number(peso.academica) + Number(qual) * Number(peso.qualitativa))) / 100;
+    return limitarNota(valor);
   }
   function classificar(n) {
     if (n == null) return '';
@@ -54,19 +59,29 @@
     if (n >= 5) return 'Atenção';
     return 'Necessita acompanhamento';
   }
+  function percentualFrequencia(presencas, previstas) {
+    if (previstas == null || previstas <= 0 || presencas == null) return null;
+    return Math.max(0, Math.min(100, Math.round((Number(presencas) / Number(previstas)) * 1000) / 10));
+  }
   function seloFreq(pct) {
     if (pct == null) return '';
     if (pct >= 90) return 'freq-ok';
     if (pct >= 75) return 'freq-mid';
     return 'freq-bad';
   }
+  function rotuloFreq(pct) {
+    if (pct == null) return '';
+    if (pct >= 90) return 'excelente';
+    if (pct >= 75) return 'atenção';
+    return 'precisa de atenção';
+  }
   function tendencia(pontos) {
     var vals = pontos.filter(function (p) { return p != null; });
-    if (vals.length < 2) return 'sem dados';
+    if (vals.length < 2) return 'sem dados suficientes';
     var d = vals[vals.length - 1] - vals[0];
-    if (d >= 0.4) return 'evoluindo';
-    if (d <= -0.4) return 'regredindo';
-    return 'estável';
+    if (d >= 0.4) return '↑ Melhorando';
+    if (d <= -0.4) return '↓ Em queda';
+    return '→ Estável';
   }
 
   function api(post) {
@@ -127,8 +142,10 @@
     $('profVoltarLogin').onclick = fechar;
   }
   function mostrarApp() {
-    $('profCorpo').innerHTML = '<div class="prof-topo"><div><p class="rot-mini">Cantinho do Professor</p><h2>Missão Orbital – Acompanhamento do Desempenho</h2>' +
+    $('profCorpo').innerHTML = (PREVIEW ? '<p class="prof-aviso">MODO DE PRÉVIA. Alunos fictícios: Ana, Bruno e Carla Preview. A senha orbita-preview não autentica produção e não grava na escola.</p>' : '') +
+      '<div class="prof-topo"><div><p class="rot-mini">Cantinho do Professor</p><h2>Missão Orbital – Acompanhamento do Desempenho</h2>' +
       '<p class="prof-meta" id="profMeta"></p></div><button class="btn secundario prof-sair" type="button" id="profSair">Sair</button></div>' +
+      '<p class="prof-ok" id="profOk" hidden></p>' +
       '<div class="prof-filtros"><label>Turma<select id="profTurma"></select></label><label>Bimestre<select id="profBim">' +
       [1, 2, 3, 4].map(function (n) { return '<option value="' + n + '">' + n + 'º bimestre</option>'; }).join('') +
       '</select></label><label>Buscar aluno<input id="profBusca" placeholder="Nome"></label></div>' +
@@ -172,36 +189,46 @@
       b.classList.toggle('ativa', b.getAttribute('data-vista') === estado.vista);
     });
     $('profFicha').hidden = true;
+    if ($('profOk')) {
+      $('profOk').hidden = !estado.aviso;
+      $('profOk').textContent = estado.aviso || '';
+      estado.aviso = '';
+    }
     if (estado.vista === 'turma') renderTurma();
     else if (estado.vista === 'rapida') renderRapida();
     else if (estado.vista === 'freq') renderFreq();
     else if (estado.vista === 'pesos') renderPesos();
     else renderExportar();
   }
+  function mediaDe(arr) { return arr.length ? arr.reduce(function (s, n) { return s + n; }, 0) / arr.length : null; }
   function cards(alunos) {
     var finais = alunos.map(function (a) { return a.notaFinal; }).filter(function (n) { return n != null; });
     var quals = alunos.map(function (a) { return a.qualitativa; }).filter(function (n) { return n != null; });
     var freq = alunos.map(function (a) { return a.frequencia && a.frequencia.percentual; }).filter(function (n) { return n != null; });
-    var media = function (arr) { return arr.length ? arr.reduce(function (s, n) { return s + n; }, 0) / arr.length : null; };
+    var crit = function (id) { return alunos.map(function (a) { return a.avaliacao && a.avaliacao[id]; }).filter(function (n) { return n != null && n !== ''; }).map(Number); };
     var bom = alunos.filter(function (a) { return a.notaFinal != null && a.notaFinal >= 7; }).length;
     var at = alunos.filter(function (a) { return a.notaFinal != null && a.notaFinal >= 5 && a.notaFinal < 7; }).length;
     var ru = alunos.filter(function (a) { return a.notaFinal != null && a.notaFinal < 5; }).length;
+    var pend = alunos.filter(function (a) { return a.qualitativa == null; }).length;
     return '<div class="prof-cards"><div class="vidro"><b>' + alunos.length + '</b><span>Alunos</span></div>' +
-      '<div class="vidro"><b>' + br(media(finais)) + '</b><span>Média da turma</span></div>' +
+      '<div class="vidro"><b>' + br(mediaDe(finais)) + '</b><span>Média da turma</span></div>' +
       '<div class="vidro"><b>' + br(finais.length ? Math.max.apply(null, finais) : null) + '</b><span>Maior desempenho</span></div>' +
       '<div class="vidro"><b>' + br(finais.length ? Math.min.apply(null, finais) : null) + '</b><span>Menor desempenho</span></div>' +
-      '<div class="vidro ok"><b>' + bom + '</b><span>Bom desempenho</span></div>' +
-      '<div class="vidro mid"><b>' + at + '</b><span>Em atenção</span></div>' +
+      '<div class="vidro ok"><b>' + bom + '</b><span>Situação adequada</span></div>' +
+      '<div class="vidro mid"><b>' + at + '</b><span>Precisam de atenção</span></div>' +
       '<div class="vidro bad"><b>' + ru + '</b><span>Acompanhamento</span></div>' +
-      '<div class="vidro"><b>' + br(media(freq)) + '%</b><span>Frequência média</span></div>' +
-      '<div class="vidro"><b>' + br(media(quals)) + '</b><span>Qualitativa média</span></div></div>';
+      '<div class="vidro"><b>' + pend + '</b><span>Sem avaliação</span></div>' +
+      '<div class="vidro"><b>' + br(mediaDe(freq)) + '%</b><span>Frequência média</span></div>' +
+      '<div class="vidro"><b>' + br(mediaDe(crit('atividades'))) + '</b><span>Atividades</span></div>' +
+      '<div class="vidro"><b>' + br(mediaDe(crit('participacao'))) + '</b><span>Participação</span></div>' +
+      '<div class="vidro"><b>' + br(mediaDe(crit('comportamento'))) + '</b><span>Comportamento</span></div></div>';
   }
   function renderTurma() {
     var alunos = alunosFiltrados();
     var html = cards(alunos) + '<div class="prof-tabela"><table><thead><tr><th>Aluno</th><th>Média</th><th>Qualitativa</th><th>Frequência</th><th>Nota final</th><th>Situação</th><th></th></tr></thead><tbody>';
     alunos.forEach(function (a, i) {
       var pct = a.frequencia && a.frequencia.percentual;
-      html += '<tr><td>' + esc(a.nome) + '<small>Nº ' + esc(a.numero) + '</small></td><td>' + br(a.media) + '</td><td>' + br(a.qualitativa) + '</td><td class="' + seloFreq(pct) + '">' + (pct == null ? '—' : br(pct) + '%') + '</td><td>' + br(a.notaFinal) + '</td><td>' + esc(a.situacao || 'sem avaliação') + '</td><td><button type="button" class="btn mini" data-i="' + i + '">Avaliar</button></td></tr>';
+      html += '<tr><td>' + esc(a.nome) + '<small>Nº ' + esc(a.numero) + (a.qualitativa == null ? ' · pendente' : ' · avaliado') + '</small></td><td>' + br(a.media) + '</td><td>' + br(a.qualitativa) + '</td><td class="' + seloFreq(pct) + '">' + (pct == null ? '—' : br(pct) + '% ' + rotuloFreq(pct)) + '</td><td>' + br(a.notaFinal) + '</td><td>' + esc(a.situacao || 'sem avaliação') + '</td><td><button type="button" class="btn mini" data-i="' + i + '">Avaliar</button></td></tr>';
     });
     html += '</tbody></table></div>';
     $('profPainel').innerHTML = html || '<p>Nenhum aluno.</p>';
@@ -221,19 +248,20 @@
       html += '</div></fieldset>';
     });
     html += '<div class="prof-freq3"><label>Aulas previstas<input id="fqPrev" type="number" min="0" value="' + esc(av.aulasPrevistas || '') + '"></label><label>Faltas<input id="fqFal" type="number" min="0" value="' + esc(av.faltas || '') + '"></label><label>Presenças<input id="fqPre" type="number" min="0" value="' + esc(av.presencas || '') + '"></label></div>' +
-      '<p id="fqPct" class="prof-lead"></p><label>Observação do professor<textarea id="fqObs" maxlength="280" placeholder="Opcional. Uma ou duas frases.">' + esc(av.observacao || '') + '</textarea></label>' +
+      '<p id="fqPct" class="prof-lead"></p><label>Observação do professor <small>(opcional, não altera a nota)</small><textarea id="fqObs" maxlength="280" placeholder="Opcional. Uma ou duas frases.">' + esc(av.observacao || '') + '</textarea></label>' +
       '<div class="prof-nota" id="fqNota"></div><div class="prof-evol" id="fqEvol"></div>' +
       '<div class="prof-acoes"><button class="btn" type="button" id="fqSalvar">Salvar avaliação</button><button class="btn secundario" type="button" id="fqFechar">Fechar</button></div><p class="erro" id="fqErro"></p></div>';
     $('profFicha').hidden = false;
     $('profFicha').innerHTML = html;
     function atualizar() {
-      var prev = num($('fqPrev').value), pres = num($('fqPre').value);
-      var pct = prev ? Math.round((pres / prev) * 1000) / 10 : null;
-      $('fqPct').innerHTML = 'Frequência: <b class="' + seloFreq(pct) + '">' + (pct == null ? 'informe aulas e presenças' : br(pct) + '%') + '</b>';
+      var prev = num($('fqPrev').value), pres = num($('fqPre').value), fal = num($('fqFal').value);
+      var invalida = prev != null && pres != null && (pres > prev || (fal != null && pres + fal > prev));
+      var pct = invalida ? null : percentualFrequencia(pres, prev);
+      $('fqPct').innerHTML = invalida ? '<b class="freq-bad">Presenças e faltas não podem passar das aulas previstas.</b>' : ('Frequência: <b class="' + seloFreq(pct) + '">' + (pct == null ? 'informe aulas e presenças' : br(pct) + '% · ' + rotuloFreq(pct)) + '</b>');
       var draft = lerDraft();
       var q = notaQualitativa(draft, pct, estado.config.pesos);
       var f = notaFinal(aluno.media, q, estado.config.pesoNota);
-      $('fqNota').innerHTML = '<div><span>Nota qualitativa</span><strong>' + br(q) + '</strong><small>' + esc(classificar(q)) + '</small></div><div><span>Nota final</span><strong>' + br(f) + '</strong><small>acadêmica ' + estado.config.pesoNota.academica + '% + qualitativa ' + estado.config.pesoNota.qualitativa + '%</small></div>';
+      $('fqNota').innerHTML = '<div><span>Nota acadêmica</span><strong>' + br(aluno.media) + '</strong><small>não é substituída</small></div><div><span>Nota qualitativa</span><strong>' + br(q) + '</strong><small>' + esc(classificar(q)) + '</small></div><div><span>Nota final</span><strong>' + br(f) + '</strong><small>acadêmica ' + estado.config.pesoNota.academica + '% + qualitativa ' + estado.config.pesoNota.qualitativa + '%</small></div>';
     }
     function lerDraft() {
       var d = {};
@@ -248,7 +276,12 @@
     $('fqEvol').innerHTML = grafico(aluno);
     $('fqFechar').onclick = function () { $('profFicha').hidden = true; };
     $('fqSalvar').onclick = function () {
-      var prev = num($('fqPrev').value), pres = num($('fqPre').value);
+      var prev = num($('fqPrev').value), pres = num($('fqPre').value), fal = num($('fqFal').value);
+      if (prev != null && pres != null && (pres > prev || (fal != null && pres + fal > prev))) {
+        $('fqErro').textContent = 'Frequência impossível: presenças + faltas não podem passar das aulas previstas.';
+        $('fqErro').classList.add('visivel');
+        return;
+      }
       var payload = lerDraft();
       payload.turma = aluno.turma; payload.numero = aluno.numero; payload.nome = aluno.nome;
       payload.bimestre = Number($('profBim').value); payload.id = (aluno.avaliacao && aluno.avaliacao.id) || '';
@@ -256,6 +289,7 @@
       payload.observacao = $('fqObs').value.trim(); payload.data = new Date().toISOString().slice(0, 10);
       api({ action: 'profSalvar', token: estado.token, avaliacao: payload }).then(function (res) {
         if (!res.ok) { $('fqErro').textContent = res.error || 'Não salvou.'; $('fqErro').classList.add('visivel'); return; }
+        estado.aviso = 'Avaliação de ' + aluno.nome + ' salva. A observação não entrou na nota.';
         carregar();
       }).catch(function () { $('fqErro').textContent = 'Falha ao salvar.'; $('fqErro').classList.add('visivel'); });
     };
@@ -266,8 +300,10 @@
       var h = null;
       hist.forEach(function (x) { if (Number(x.bimestre) === b) h = x.qualitativa; });
       var acad = aluno.medias ? aluno.medias[b - 1] : null;
+      var freq = null;
+      hist.forEach(function (x) { if (Number(x.bimestre) === b && x.aulasPrevistas) freq = percentualFrequencia(x.presencas, x.aulasPrevistas); });
       var fin = notaFinal(acad, h, estado.config.pesoNota);
-      return { b: b, acad: acad, qual: h, fin: fin };
+      return { b: b, acad: acad, qual: h, fin: fin, freq: freq };
     });
     var vals = pts.map(function (p) { return p.fin; });
     var max = 10;
@@ -275,16 +311,17 @@
       var h = p.fin == null ? 0 : Math.round((p.fin / max) * 100);
       return '<div><i style="height:' + h + '%"></i><span>B' + p.b + '<br>' + br(p.fin) + '</span></div>';
     }).join('');
-    return '<h4>Evolução</h4><p>Tendência da nota final: <b>' + tendencia(vals) + '</b></p><div class="prof-barras">' + barras + '</div>' +
-      '<table><thead><tr><th>Bimestre</th><th>Acadêmica</th><th>Qualitativa</th><th>Final</th></tr></thead><tbody>' +
-      pts.map(function (p) { return '<tr><td>' + p.b + '</td><td>' + br(p.acad) + '</td><td>' + br(p.qual) + '</td><td>' + br(p.fin) + '</td></tr>'; }).join('') + '</tbody></table>';
+    return '<h4>Evolução</h4><p>Tendência da nota final: <b>' + tendencia(vals) + '</b>. Bimestre sem lançamento fica em branco.</p><div class="prof-barras">' + barras + '</div>' +
+      '<table><thead><tr><th>Bimestre</th><th>Acadêmica</th><th>Qualitativa</th><th>Frequência</th><th>Final</th></tr></thead><tbody>' +
+      pts.map(function (p) { return '<tr><td>B' + p.b + '</td><td>' + br(p.acad) + '</td><td>' + br(p.qual) + '</td><td>' + (p.freq == null ? '—' : br(p.freq) + '%') + '</td><td>' + br(p.fin) + '</td></tr>'; }).join('') + '</tbody></table>';
   }
   function renderRapida() {
     var alunos = alunosFiltrados();
     var html = '<p class="prof-lead">Toque o número de cada critério. 0/5/8/10 em atividades; 2/5/8/10 nos demais. Salva a turma inteira de uma vez.</p><div class="prof-rapida">';
     alunos.forEach(function (a, i) {
       var av = a.avaliacao || {};
-      html += '<article class="vidro" data-aluno="' + i + '"><header><b>' + esc(a.nome) + '</b><small>Nº ' + esc(a.numero) + '</small></header>';
+      var completo = CRITERIOS.every(function (c) { return av[c.id] != null && av[c.id] !== ''; });
+      html += '<article class="vidro" data-aluno="' + i + '"><header><b>' + esc(a.nome) + '</b><small>Nº ' + esc(a.numero) + ' · ' + (completo ? 'avaliado' : 'pendente') + '</small></header>';
       CRITERIOS.forEach(function (c) {
         html += '<div class="linha"><span>' + esc(c.nome) + '</span>';
         c.opcoes.forEach(function (op) {
@@ -313,7 +350,7 @@
         });
         return api({ action: 'profSalvar', token: estado.token, avaliacao: payload });
       });
-      Promise.all(fila).then(function () { carregar(); }).catch(function () { $('rapErro').textContent = 'Algum lançamento falhou.'; $('rapErro').classList.add('visivel'); });
+      Promise.all(fila).then(function () { estado.aviso = 'Avaliação rápida salva. Quem ficou sem critério continua pendente.'; carregar(); }).catch(function () { $('rapErro').textContent = 'Algum lançamento falhou.'; $('rapErro').classList.add('visivel'); });
     };
   }
   function renderFreq() {
@@ -321,7 +358,7 @@
     var hoje = new Date().toISOString().slice(0, 10);
     var html = '<div class="prof-filtros"><label>Data da aula<input id="freqData" type="date" value="' + hoje + '"></label></div><div class="prof-chamada">';
     alunos.forEach(function (a, i) {
-      html += '<div class="vidro"><b>' + esc(a.nome) + '</b><div><button type="button" data-i="' + i + '" data-m="P">P</button><button type="button" data-i="' + i + '" data-m="F">F</button><button type="button" data-i="' + i + '" data-m="J">J</button></div><small id="freqAcum' + i + '">acumulado ' + (a.frequencia && a.frequencia.percentual != null ? br(a.frequencia.percentual) + '%' : '—') + '</small></div>';
+      html += '<div class="vidro"><b>' + esc(a.nome) + '</b><div><button type="button" data-i="' + i + '" data-m="P">P</button><button type="button" data-i="' + i + '" data-m="F">F</button><button type="button" data-i="' + i + '" data-m="J">J</button></div><small>acumulado ' + (a.frequencia && a.frequencia.percentual != null ? br(a.frequencia.percentual) + '% · ' + rotuloFreq(a.frequencia.percentual) : 'sem chamada') + '</small></div>';
     });
     html += '</div><button class="btn" id="salvarFreq" type="button">Salvar chamada</button><p class="prof-lead">P presente · F falta · J falta justificada. A frequência acumulada conta P sobre as aulas lançadas. J fica registrada à parte e não entra como presença.</p>';
     $('profPainel').innerHTML = html;
@@ -334,9 +371,12 @@
       b.classList.add('on');
     };
     $('salvarFreq').onclick = function () {
-      var chamada = alunos.map(function (a, i) { return { nome: a.nome, numero: a.numero, marca: marcas[i] || 'P' }; });
+      var faltou = alunos.some(function (a, i) { return !marcas[i]; });
+      if (faltou) { $('profPainel').insertAdjacentHTML('beforeend', '<p class="erro visivel">Marque P, F ou J em todos antes de salvar. Ninguém é lançado como presente automaticamente.</p>'); return; }
+      var chamada = alunos.map(function (a, i) { return { nome: a.nome, numero: a.numero, marca: marcas[i] }; });
       api({ action: 'profFrequencia', token: estado.token, turma: $('profTurma').value, data: $('freqData').value, chamada: chamada }).then(function (res) {
-        if (!res.ok) return alert(res.error || 'Não salvou.');
+        if (!res.ok) { $('profPainel').insertAdjacentHTML('beforeend', '<p class="erro visivel">' + esc(res.error || 'Não salvou.') + '</p>'); return; }
+        estado.aviso = 'Chamada salva. Frequência limitada a 100%.';
         carregar();
       });
     };
@@ -344,29 +384,40 @@
   function renderPesos() {
     var p = estado.config.pesos, n = estado.config.pesoNota;
     var campos = [['atividades', 'Atividades'], ['participacao', 'Participação'], ['comportamento', 'Comportamento'], ['respeito', 'Respeito'], ['responsabilidade', 'Responsabilidade'], ['frequencia', 'Frequência']];
-    var html = '<form class="vidro" id="formPesos"><p class="prof-lead">Os critérios da nota qualitativa somam 100%. A nota final soma o peso acadêmico e o qualitativo, também 100%. A nota acadêmica da planilha não é substituída.</p>';
+    var html = '<form class="vidro" id="formPesos"><p class="prof-lead">Os critérios da nota qualitativa somam 100%. A nota final soma o peso acadêmico e o qualitativo, também 100%. A nota acadêmica da planilha não é substituída.</p><p id="pesoSoma" class="prof-lead"></p>';
     campos.forEach(function (c) { html += '<label>' + c[1] + '<input name="' + c[0] + '" type="number" min="0" max="100" value="' + p[c[0]] + '">%</label>'; });
     html += '<label>Peso da nota acadêmica<input name="academica" type="number" min="0" max="100" value="' + n.academica + '">%</label><label>Peso da avaliação qualitativa<input name="qualitativa" type="number" min="0" max="100" value="' + n.qualitativa + '">%</label><button class="btn" type="submit">Salvar pesos</button><p class="erro" id="pesoErro"></p></form>';
     $('profPainel').innerHTML = html;
-    $('formPesos').onsubmit = function (ev) {
-      ev.preventDefault();
-      var fd = new FormData(ev.target);
+    function lerPesos() {
+      var fd = new FormData($('formPesos'));
       var pesos = {};
       campos.forEach(function (c) { pesos[c[0]] = Number(fd.get(c[0])); });
       var pesoNota = { academica: Number(fd.get('academica')), qualitativa: Number(fd.get('qualitativa')) };
-      api({ action: 'profConfig', token: estado.token, salvar: true, pesos: pesos, pesoNota: pesoNota }).then(function (res) {
+      var soma = campos.reduce(function (s, c) { return s + Number(pesos[c[0]] || 0); }, 0);
+      var somaFinal = Number(pesoNota.academica || 0) + Number(pesoNota.qualitativa || 0);
+      $('pesoSoma').textContent = 'Critérios: ' + soma + '%. Nota final: acadêmica ' + pesoNota.academica + '% + qualitativa ' + pesoNota.qualitativa + '% = ' + somaFinal + '%.';
+      return { pesos: pesos, pesoNota: pesoNota, soma: soma, somaFinal: somaFinal };
+    }
+    $('formPesos').oninput = lerPesos;
+    lerPesos();
+    $('formPesos').onsubmit = function (ev) {
+      ev.preventDefault();
+      var dados = lerPesos();
+      if (Math.round(dados.soma) !== 100) { $('pesoErro').textContent = 'A soma dos critérios precisa ser exatamente 100%. Agora está em ' + dados.soma + '%.'; $('pesoErro').classList.add('visivel'); return; }
+      if (Math.round(dados.somaFinal) !== 100) { $('pesoErro').textContent = 'Peso acadêmico + qualitativo precisa ser exatamente 100%. Agora está em ' + dados.somaFinal + '%.'; $('pesoErro').classList.add('visivel'); return; }
+      api({ action: 'profConfig', token: estado.token, salvar: true, pesos: dados.pesos, pesoNota: dados.pesoNota }).then(function (res) {
         if (!res.ok) { $('pesoErro').textContent = res.error || 'Não salvou.'; $('pesoErro').classList.add('visivel'); return; }
-        estado.config = res.config; carregar();
+        estado.config = res.config; estado.aviso = 'Pesos salvos. As notas visíveis foram recalculadas.'; carregar();
       });
     };
   }
   function linhasExport() {
     return alunosFiltrados().map(function (a) {
       var av = a.avaliacao || {};
-      return [a.nome, a.turma, a.numero, br(a.media), av.atividades, av.participacao, av.comportamento, av.respeito, av.responsabilidade, a.frequencia && a.frequencia.percentual != null ? br(a.frequencia.percentual) + '%' : '', br(a.qualitativa), br(a.notaFinal), a.situacao || '', av.observacao || ''];
+      return [a.nome, a.turma, a.numero, $('profBim').value, br(a.media), av.atividades, av.participacao, av.comportamento, av.respeito, av.responsabilidade, a.frequencia && a.frequencia.percentual != null ? br(a.frequencia.percentual) + '%' : '', br(a.qualitativa), br(a.notaFinal), a.situacao || '', av.observacao || ''];
     });
   }
-  var CAB = ['Aluno', 'Turma', 'Número', 'Nota acadêmica', 'Atividades', 'Participação', 'Comportamento', 'Respeito', 'Responsabilidade', 'Frequência', 'Nota qualitativa', 'Nota final', 'Situação', 'Observação'];
+  var CAB = ['Aluno', 'Turma', 'Número', 'Bimestre', 'Nota acadêmica', 'Atividades', 'Participação', 'Comportamento', 'Respeito', 'Responsabilidade', 'Frequência', 'Nota qualitativa', 'Nota final', 'Situação', 'Observação'];
   function renderExportar() {
     $('profPainel').innerHTML = '<div class="vidro"><p class="prof-lead">Exporta a turma e o bimestre filtrados. O arquivo só existe no seu computador, gerado com os dados já autorizados nesta sessão.</p><div class="prof-acoes"><button class="btn" type="button" id="expCsv">CSV</button><button class="btn" type="button" id="expXls">Excel</button><button class="btn" type="button" id="expPdf">PDF</button></div></div>';
     $('expCsv').onclick = function () { baixar('missao-orbital.csv', '\uFEFF' + [CAB].concat(linhasExport()).map(csvLinha).join('\n'), 'text/csv'); };
@@ -410,7 +461,10 @@
     pdf += 'trailer << /Size ' + (objetos.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF';
     return pdf;
   }
-  function pdfEsc(s) { return String(s).replace(/[^\x20-\x7E]/g, '?').replace(/[\\()]/g, function (c) { return '\\' + c; }); }
+  function pdfEsc(s) {
+    var mapa = { 'á':'\\341','à':'\\340','ã':'\\343','â':'\\342','ä':'\\344','é':'\\351','ê':'\\352','í':'\\355','ó':'\\363','ô':'\\364','õ':'\\365','ú':'\\372','ç':'\\347','Á':'\\301','À':'\\300','Ã':'\\303','Â':'\\302','É':'\\311','Ê':'\\312','Í':'\\315','Ó':'\\323','Ô':'\\324','Õ':'\\325','Ú':'\\332','Ç':'\\307','—':'-','·':'-' };
+    return String(s).replace(/[\\()]/g, function (c) { return '\\' + c; }).replace(/[^\x20-\x7E]/g, function (ch) { return mapa[ch] || '?'; });
+  }
 
   function previewApi(post) {
     if (!window.__moPreview) window.__moPreview = previewBase();
@@ -421,7 +475,13 @@
     }
     if (post.token !== 'a'.repeat(64)) return Promise.resolve({ ok: false, error: 'Sessão inválida.' });
     if (post.action === 'profSessao') return Promise.resolve({ ok: true, professor: 'Professor Silas' });
-    if (post.action === 'profConfig' && post.salvar) { db.config.pesos = post.pesos; db.config.pesoNota = post.pesoNota; return Promise.resolve({ ok: true, config: db.config }); }
+    if (post.action === 'profConfig' && post.salvar) {
+      var soma = ['atividades','participacao','comportamento','respeito','responsabilidade','frequencia'].reduce(function (s, k) { return s + Number(post.pesos[k] || 0); }, 0);
+      var somaNota = Number(post.pesoNota.academica) + Number(post.pesoNota.qualitativa);
+      if (Math.round(soma) !== 100) return Promise.resolve({ ok: false, error: 'A soma dos critérios precisa ser exatamente 100%.' });
+      if (Math.round(somaNota) !== 100) return Promise.resolve({ ok: false, error: 'Peso acadêmico + qualitativo precisa ser exatamente 100%.' });
+      db.config.pesos = post.pesos; db.config.pesoNota = post.pesoNota; return Promise.resolve({ ok: true, config: db.config });
+    }
     if (post.action === 'profSalvar') {
       var id = post.avaliacao.turma + '|' + post.avaliacao.numero + '|' + post.avaliacao.bimestre;
       post.avaliacao.id = id; post.avaliacao.atualizadoEm = new Date().toISOString(); post.avaliacao.professor = 'Professor Silas';
@@ -438,8 +498,7 @@
       alunos: [
         { turma: '1 A-ELETROTÉCNICA', numero: '1', nome: 'Ana Preview', medias: [7.5, 8, 7.2, null] },
         { turma: '1 A-ELETROTÉCNICA', numero: '2', nome: 'Bruno Preview', medias: [5, 5.5, 6, null] },
-        { turma: '1 A-ELETROTÉCNICA', numero: '3', nome: 'Carla Preview', medias: [4, 4.5, 4.2, null] },
-        { turma: '2 A-EDIFICAÇÕES', numero: '1', nome: 'Diego Preview', medias: [9, 8.5, 9.2, null] }
+        { turma: '1 A-ELETROTÉCNICA', numero: '3', nome: 'Carla Preview', medias: [4, 4.5, 4.2, null] }
       ],
       avals: [], freqs: []
     };
@@ -460,12 +519,12 @@
         });
       });
       if (av && av.aulasPrevistas) { fr.previstas = Number(av.aulasPrevistas); fr.presencas = Number(av.presencas || 0); fr.faltas = Number(av.faltas || 0); }
-      fr.percentual = fr.previstas ? Math.round((fr.presencas / fr.previstas) * 1000) / 10 : null;
+      fr.percentual = percentualFrequencia(fr.presencas, fr.previstas);
       var qual = av ? notaQualitativa(av, fr.percentual, db.config.pesos) : null;
       var fin = notaFinal(al.medias[bim - 1], qual, db.config.pesoNota);
       return { turma: al.turma, numero: al.numero, nome: al.nome, medias: al.medias, media: al.medias[bim - 1], avaliacao: av, frequencia: fr, qualitativa: qual, notaFinal: fin, situacao: situacao(fin) };
     });
-    return { ok: true, turma: turma, bimestre: bim, anoLetivo: 2026, turmas: ['1 A-ELETROTÉCNICA', '2 A-EDIFICAÇÕES'], config: db.config, alunos: alunos, historico: db.avals };
+    return { ok: true, turma: turma, bimestre: bim, anoLetivo: 2026, turmas: ['1 A-ELETROTÉCNICA'], config: db.config, alunos: alunos, historico: db.avals };
   }
 
   document.addEventListener('DOMContentLoaded', function () {
