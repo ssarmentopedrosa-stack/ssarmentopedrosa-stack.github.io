@@ -234,7 +234,7 @@ function profResumoFrequencia_(turma) {
   });
   Object.keys(mapa).forEach(function (k) {
     var f = mapa[k];
-    f.percentual = f.previstas ? Math.round((f.presencas / f.previstas) * 1000) / 10 : null;
+    f.percentual = f.previstas ? Math.max(0, Math.min(100, Math.round((f.presencas / f.previstas) * 1000) / 10)) : null;
   });
   return mapa;
 }
@@ -250,16 +250,17 @@ function profNotaQualitativa_(av, freqPct, pesos) {
   partes.forEach(function (p) {
     if (p[1] == null || p[1] === '') return;
     var w = Number(pesos[p[0]] || 0);
-    soma += Number(p[1]) * w;
+    soma += Math.max(0, Math.min(10, Number(p[1]))) * w;
     somaP += w;
   });
   if (!somaP) return null;
-  return Math.round((soma / somaP) * 10) / 10;
+  return Math.max(0, Math.min(10, Math.round((soma / somaP) * 10) / 10));
 }
 
 function profNotaFinal_(acad, qual, pesoNota) {
   pesoNota = pesoNota || PROF_PESO_NOTA_PADRAO;
-  return Math.round((Number(acad) * Number(pesoNota.academica) + Number(qual) * Number(pesoNota.qualitativa))) / 100;
+  var valor = Math.round((Number(acad) * Number(pesoNota.academica) + Number(qual) * Number(pesoNota.qualitativa))) / 100;
+  return Math.max(0, Math.min(10, valor));
 }
 
 function profClassificar_(n) {
