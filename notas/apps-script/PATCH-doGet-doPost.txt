@@ -1,24 +1,21 @@
-/**
- * Trecho para o doGet/doPost que JÁ existe.
- * Não apague o fluxo do aluno. Só acrescente o encaminhamento no início.
- *
- * function doGet(e) {
- *   var q = e && e.parameter || {};
- *   if (String(q.action || '').indexOf('prof') === 0) {
- *     return json_(profEncaminhar({ action: q.action, token: q.token, turma: q.turma, bimestre: q.bimestre }));
- *   }
- *   // ... resto atual (action=turmas etc.)
- * }
- *
- * function doPost(e) {
- *   var dados = {};
- *   try { dados = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'JSON inválido' }); }
- *   if (String(dados.action || '').indexOf('prof') === 0) return json_(profEncaminhar(dados));
- *   // ... resto atual (action=login do aluno)
- *   // Antes de devolver o estudante: estudante = sanitizarRespostaAluno_(estudante);
- * }
- *
- * function json_(obj) {
- *   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
- * }
- */
+Cole estas quatro linhas no doGet e no doPost que JÁ EXISTEM.
+Não apague o restante. Não renomeie ações do aluno.
+
+function doGet(e) {
+  var q = (e && e.parameter) || {};
+  var respostaProfessor = profEncaminhar(q);
+  if (respostaProfessor) return jsonAluno_(respostaProfessor);
+  // daqui para baixo, o doGet atual permanece igual
+}
+
+function doPost(e) {
+  var dados = {};
+  try { dados = JSON.parse(e.postData.contents); } catch (err) { dados = {}; }
+  var respostaProfessor = profEncaminhar(dados);
+  if (respostaProfessor) return jsonAluno_(respostaProfessor);
+  // daqui para baixo, o doPost atual permanece igual
+  // antes de devolver o estudante: estudante = sanitizarRespostaAluno_(estudante);
+}
+
+Use a função json que o projeto já usa. Se ela tiver outro nome, troque só jsonAluno_.
+Não crie um segundo doGet/doPost.

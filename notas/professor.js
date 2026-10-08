@@ -126,7 +126,7 @@
       ev.preventDefault();
       var btn = ev.target.querySelector('.btn');
       btn.disabled = true;
-      api({ action: 'profLogin', email: $('profEmail').value.trim(), senha: $('profSenha').value }).then(function (res) {
+      api({ action: 'professorLogin', email: $('profEmail').value.trim(), senha: $('profSenha').value }).then(function (res) {
         btn.disabled = false;
         if (!res.ok || !res.token) { $('profErro').textContent = res.error || 'Acesso negado.'; $('profErro').classList.add('visivel'); return; }
         estado.token = res.token; estado.professor = res.professor || 'Professor';
@@ -164,7 +164,7 @@
   function carregar() {
     if (!$('profPainel')) mostrarApp();
     $('profPainel').innerHTML = '<p class="prof-lead">Carregando turma…</p>';
-    api({ action: 'profTurma', token: estado.token, turma: $('profTurma') && $('profTurma').value || '', bimestre: $('profBim') && $('profBim').value || 3 }).then(function (res) {
+    api({ action: 'professorStudents', token: estado.token, turma: $('profTurma') && $('profTurma').value || '', bimestre: $('profBim') && $('profBim').value || 3 }).then(function (res) {
       if (!res.ok) { estado.token = ''; sessionStorage.removeItem('mo_prof_token'); mostrarLogin(); return; }
       estado.pacote = res;
       if (res.config) estado.config = res.config;
@@ -287,7 +287,7 @@
       payload.bimestre = Number($('profBim').value); payload.id = (aluno.avaliacao && aluno.avaliacao.id) || '';
       payload.aulasPrevistas = prev; payload.presencas = pres; payload.faltas = num($('fqFal').value);
       payload.observacao = $('fqObs').value.trim(); payload.data = new Date().toISOString().slice(0, 10);
-      api({ action: 'profSalvar', token: estado.token, avaliacao: payload }).then(function (res) {
+      api({ action: 'professorEvaluation', token: estado.token, avaliacao: payload }).then(function (res) {
         if (!res.ok) { $('fqErro').textContent = res.error || 'Não salvou.'; $('fqErro').classList.add('visivel'); return; }
         estado.aviso = 'Avaliação de ' + aluno.nome + ' salva. A observação não entrou na nota.';
         carregar();
@@ -348,7 +348,7 @@
           var on = art.querySelector('button.on[data-c="' + c.id + '"]');
           payload[c.id] = on ? Number(on.getAttribute('data-v')) : (a.avaliacao ? a.avaliacao[c.id] : null);
         });
-        return api({ action: 'profSalvar', token: estado.token, avaliacao: payload });
+        return api({ action: 'professorEvaluation', token: estado.token, avaliacao: payload });
       });
       Promise.all(fila).then(function () { estado.aviso = 'Avaliação rápida salva. Quem ficou sem critério continua pendente.'; carregar(); }).catch(function () { $('rapErro').textContent = 'Algum lançamento falhou.'; $('rapErro').classList.add('visivel'); });
     };
@@ -374,7 +374,7 @@
       var faltou = alunos.some(function (a, i) { return !marcas[i]; });
       if (faltou) { $('profPainel').insertAdjacentHTML('beforeend', '<p class="erro visivel">Marque P, F ou J em todos antes de salvar. Ninguém é lançado como presente automaticamente.</p>'); return; }
       var chamada = alunos.map(function (a, i) { return { nome: a.nome, numero: a.numero, marca: marcas[i] }; });
-      api({ action: 'profFrequencia', token: estado.token, turma: $('profTurma').value, data: $('freqData').value, chamada: chamada }).then(function (res) {
+      api({ action: 'professorFrequency', token: estado.token, turma: $('profTurma').value, data: $('freqData').value, chamada: chamada }).then(function (res) {
         if (!res.ok) { $('profPainel').insertAdjacentHTML('beforeend', '<p class="erro visivel">' + esc(res.error || 'Não salvou.') + '</p>'); return; }
         estado.aviso = 'Chamada salva. Frequência limitada a 100%.';
         carregar();
@@ -405,7 +405,7 @@
       var dados = lerPesos();
       if (Math.round(dados.soma) !== 100) { $('pesoErro').textContent = 'A soma dos critérios precisa ser exatamente 100%. Agora está em ' + dados.soma + '%.'; $('pesoErro').classList.add('visivel'); return; }
       if (Math.round(dados.somaFinal) !== 100) { $('pesoErro').textContent = 'Peso acadêmico + qualitativo precisa ser exatamente 100%. Agora está em ' + dados.somaFinal + '%.'; $('pesoErro').classList.add('visivel'); return; }
-      api({ action: 'profConfig', token: estado.token, salvar: true, pesos: dados.pesos, pesoNota: dados.pesoNota }).then(function (res) {
+      api({ action: 'professorConfig', token: estado.token, salvar: true, pesos: dados.pesos, pesoNota: dados.pesoNota }).then(function (res) {
         if (!res.ok) { $('pesoErro').textContent = res.error || 'Não salvou.'; $('pesoErro').classList.add('visivel'); return; }
         estado.config = res.config; estado.aviso = 'Pesos salvos. As notas visíveis foram recalculadas.'; carregar();
       });
@@ -419,10 +419,20 @@
   }
   var CAB = ['Aluno', 'Turma', 'Número', 'Bimestre', 'Nota acadêmica', 'Atividades', 'Participação', 'Comportamento', 'Respeito', 'Responsabilidade', 'Frequência', 'Nota qualitativa', 'Nota final', 'Situação', 'Observação'];
   function renderExportar() {
-    $('profPainel').innerHTML = '<div class="vidro"><p class="prof-lead">Exporta a turma e o bimestre filtrados. O arquivo só existe no seu computador, gerado com os dados já autorizados nesta sessão.</p><div class="prof-acoes"><button class="btn" type="button" id="expCsv">CSV</button><button class="btn" type="button" id="expXls">Excel</button><button class="btn" type="button" id="expPdf">PDF</button></div></div>';
-    $('expCsv').onclick = function () { baixar('missao-orbital.csv', '\uFEFF' + [CAB].concat(linhasExport()).map(csvLinha).join('\n'), 'text/csv'); };
-    $('expXls').onclick = function () { baixar('missao-orbital.xls', planilhaXml(), 'application/vnd.ms-excel'); };
-    $('expPdf').onclick = function () { baixar('missao-orbital.pdf', pdfSimples(), 'application/pdf'); };
+    $('profPainel').innerHTML = '<div class="vidro"><p class="prof-lead">A exportação pede a lista autorizada nesta sessão. No modo real, o servidor revalida o token antes de devolver os dados.</p><div class="prof-acoes"><button class="btn" type="button" id="expCsv">CSV</button><button class="btn" type="button" id="expXls">Excel</button><button class="btn" type="button" id="expPdf">PDF</button></div><p class="erro" id="expErro"></p></div>';
+    function comLinhas(cb) {
+      if (PREVIEW) { cb(linhasExport()); return; }
+      api({ action: 'professorExport', token: estado.token, turma: $('profTurma').value, bimestre: $('profBim').value }).then(function (res) {
+        if (!res.ok) { $('expErro').textContent = res.error || 'Acesso negado.'; $('expErro').classList.add('visivel'); return; }
+        cb((res.linhas || []).map(function (a) {
+          var av = a.avaliacao || {};
+          return [a.nome, a.turma, a.numero, res.bimestre, br(a.media), av.atividades, av.participacao, av.comportamento, av.respeito, av.responsabilidade, a.frequencia && a.frequencia.percentual != null ? br(a.frequencia.percentual) + '%' : '', br(a.qualitativa), br(a.notaFinal), a.situacao || '', av.observacao || ''];
+        }));
+      }).catch(function () { $('expErro').textContent = 'Não foi possível exportar.'; $('expErro').classList.add('visivel'); });
+    }
+    $('expCsv').onclick = function () { comLinhas(function (ls) { baixar('missao-orbital.csv', '\uFEFF' + [CAB].concat(ls).map(csvLinha).join('\n'), 'text/csv'); }); };
+    $('expXls').onclick = function () { comLinhas(function (ls) { baixar('missao-orbital.xls', planilhaXml(ls), 'application/vnd.ms-excel'); }); };
+    $('expPdf').onclick = function () { comLinhas(function (ls) { baixar('missao-orbital.pdf', pdfSimples(ls), 'application/pdf'); }); };
   }
   function csvLinha(cols) { return cols.map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';'); }
   function baixar(nome, conteudo, tipo) {
@@ -431,14 +441,14 @@
     a.href = URL.createObjectURL(blob); a.download = nome; a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
   }
-  function planilhaXml() {
-    var linhas = [CAB].concat(linhasExport()).map(function (r) {
+  function planilhaXml(ls) {
+    var linhas = [CAB].concat(ls || linhasExport()).map(function (r) {
       return '<Row>' + r.map(function (c) { return '<Cell><Data ss:Type="String">' + esc(c) + '</Data></Cell>'; }).join('') + '</Row>';
     }).join('');
     return '<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Missao"><Table>' + linhas + '</Table></Worksheet></Workbook>';
   }
-  function pdfSimples() {
-    var linhas = [CAB.join(' | ')].concat(linhasExport().map(function (r) { return r.join(' | '); }));
+  function pdfSimples(ls) {
+    var linhas = [CAB.join(' | ')].concat((ls || linhasExport()).map(function (r) { return r.join(' | '); }));
     var y = 800, cmds = ['BT /F1 11 Tf 40 ' + y + ' Td (' + pdfEsc('Missao Orbital - Cantinho do Professor') + ') Tj ET'];
     linhas.forEach(function (linha, i) {
       y = 770 - i * 16;
@@ -469,6 +479,8 @@
   function previewApi(post) {
     if (!window.__moPreview) window.__moPreview = previewBase();
     var db = window.__moPreview;
+    var mapa = { professorLogin:'profLogin', professorStudents:'profTurma', professorEvaluation:'profSalvar', professorFrequency:'profFrequencia', professorConfig:'profConfig', professorExport:'profExport' };
+    if (mapa[post.action]) post.action = mapa[post.action];
     if (post.action === 'profLogin') {
       if (post.senha !== 'orbita-preview') return Promise.resolve({ ok: false, error: 'Acesso negado.' });
       return Promise.resolve({ ok: true, token: 'a'.repeat(64), professor: 'Professor Silas', anoLetivo: 2026 });
@@ -489,6 +501,10 @@
       return Promise.resolve({ ok: true, id: id });
     }
     if (post.action === 'profFrequencia') { db.freqs.push(post); return Promise.resolve({ ok: true }); }
+    if (post.action === 'profExport') {
+      var pacote = previewTurma(db, post);
+      return Promise.resolve({ ok: true, linhas: pacote.alunos, bimestre: pacote.bimestre, turma: pacote.turma });
+    }
     if (post.action === 'profTurma') return Promise.resolve(previewTurma(db, post));
     return Promise.resolve({ ok: false, error: 'Ação desconhecida.' });
   }

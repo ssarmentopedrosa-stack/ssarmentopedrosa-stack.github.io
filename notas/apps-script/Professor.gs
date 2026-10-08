@@ -15,15 +15,32 @@ var PROF_PESOS_PADRAO = {
 };
 var PROF_PESO_NOTA_PADRAO = { academica: 80, qualitativa: 20 };
 
+/**
+ * Encaixe isolado. NÃO substitui doGet/doPost do aluno.
+ * No início do doGet e do doPost existentes, antes de qualquer lógica do aluno:
+ *   var respostaProfessor = profEncaminhar(dados);
+ *   if (respostaProfessor) return json_(respostaProfessor);
+ * Se a ação não for da área do professor, profEncaminhar devolve null
+ * e o fluxo antigo segue exatamente igual.
+ */
 function profEncaminhar(dados) {
   var action = String(dados && dados.action || '');
+  var mapa = {
+    professorLogin: 'profLogin', professorStudents: 'profTurma', professorEvaluation: 'profSalvar',
+    professorFrequency: 'profFrequencia', professorConfig: 'profConfig', professorExport: 'profExport', professorSession: 'profSessao'
+  };
+  if (mapa[action]) action = mapa[action];
   if (action.indexOf('prof') !== 0) return null;
   try {
     if (action === 'profLogin') return profLogin_(dados);
     var sess = profExigirSessao_(dados);
-    if (!sess.ok) return sess;
+    if (!sess.ok) return { ok: false, error: 'Acesso negado.' };
     if (action === 'profSessao') return { ok: true, professor: sess.professor, anoLetivo: profAno_() };
-    if (action === 'profTurma') return profTurma_(dados);
+    if (action === 'profTurma' || action === 'profExport') {
+      var pacote = profTurma_(dados);
+      if (action === 'profExport') return { ok: pacote.ok, linhas: pacote.alunos || [], bimestre: pacote.bimestre, turma: pacote.turma, error: pacote.error };
+      return pacote;
+    }
     if (action === 'profSalvar') return profSalvar_(dados, sess);
     if (action === 'profFrequencia') return profFrequencia_(dados, sess);
     if (action === 'profConfig') return dados.salvar ? profSalvarConfig_(dados) : profLerConfig_();
@@ -117,7 +134,8 @@ function profSalvar_(dados, sess) {
   var item = dados.avaliacao || {};
   if (!item.turma || !item.nome || !item.bimestre) return { ok: false, error: 'Ficha incompleta.' };
   var sh = profAba_('AvaliacoesQualitativas', ['id', 'aluno', 'turma', 'numero', 'professor', 'bimestre', 'data', 'atualizadoEm', 'atividades', 'participacao', 'comportamento', 'respeito', 'responsabilidade', 'aulasPrevistas', 'faltas', 'presencas', 'observacao', 'qualitativa']);
-  var id = String(item.id || (item.turma + '|' + item.numero + '|' + item.bimestre));
+  if (Number(item.presencas) > Number(item.aulasPrevistas || 0) && item.aulasPrevistas) return { ok: false, error: 'Presenças não podem passar das aulas previstas.' };
+  var id = String(item.id || profIdAluno_(item) + '|' + item.bimestre);
   var valores = sh.getDataRange().getValues();
   var linha = -1;
   for (var i = 1; i < valores.length; i++) if (String(valores[i][0]) === id) linha = i + 1;
@@ -133,7 +151,10 @@ function profFrequencia_(dados, sess) {
   var sh = profAba_('FrequenciaDiaria', ['id', 'data', 'turma', 'numero', 'aluno', 'marca', 'professor', 'atualizadoEm']);
   var data = String(dados.data || '');
   var turma = String(dados.turma || '');
-  if (!data || !turma || !Array.isArray(dados.chamada)) return { ok: false, error: 'Chamada incompleta.' };
+  if (!data || !turma || !Array.isArray(dados.chamada) || !dados.chamada.length) return { ok: false, error: 'Chamada incompleta.' };
+  for (var c = 0; c < dados.chamada.length; c++) {
+    if (['P', 'F', 'J'].indexOf(dados.chamada[c].marca) < 0) return { ok: false, error: 'Marque P, F ou J em todos. Campo vazio não vira presença.' };
+  }
   var valores = sh.getDataRange().getValues();
   var mapa = {};
   for (var i = 1; i < valores.length; i++) mapa[String(valores[i][0])] = i + 1;
@@ -210,7 +231,7 @@ function profLerAvaliacoes_() {
   var valores = sh.getDataRange().getValues();
   return valores.slice(1).filter(function (r) { return r[0]; }).map(function (r) {
     return {
-      id: String(r[0]), nome: r[1], turma: r[2], numero: String(r[3]), professor: r[4], bimestre: Number(r[5]),
+      id: String(r[0]), alunoId: String(r[0]).split('|').slice(0, 2).join('|'), nome: r[1], turma: r[2], numero: String(r[3]), professor: r[4], bimestre: Number(r[5]),
       data: r[6], atualizadoEm: r[7], atividades: numOuNull_(r[8]), participacao: numOuNull_(r[9]),
       comportamento: numOuNull_(r[10]), respeito: numOuNull_(r[11]), responsabilidade: numOuNull_(r[12]),
       aulasPrevistas: numOuNull_(r[13]), faltas: numOuNull_(r[14]), presencas: numOuNull_(r[15]),
@@ -295,7 +316,10 @@ function profTurmasUnicas_(alunos) {
   alunos.forEach(function (a) { if (a.turma) m[a.turma] = 1; });
   return Object.keys(m).sort();
 }
-function profChave_(al) { return al.turma + '|' + al.numero; }
+function profIdAluno_(al) {
+  return String(al.turma || '').replace(/\s+/g, ' ').trim() + '|' + String(al.numero || '').trim();
+}
+function profChave_(al) { return profIdAluno_(al); }
 function profAchar_(avals, al) {
   for (var i = 0; i < avals.length; i++) if (String(avals[i].turma) === String(al.turma) && String(avals[i].numero) === String(al.numero)) return avals[i];
   return null;
